@@ -1,0 +1,162 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "Chai Chuan Onn"
+date: "April 30, 2016"
+output: html_document
+---
+
+#Introduction
+The aim of the assignment is to predict the manner in which 6 participants perform belt, forearm, arm and dumbell.
+
+Data from accelerometers on the belt,forearm, arm and dumbell are used in determining the manner.
+
+More information is available at http://groupware.les.inf.puc-rio.br/har.
+
+#Data Preparation
+Set the folder location to the downloaded file.
+Replace all the empty, NA or NULL value with NAs.
+
+```{r}
+setwd('C:/Users/User/Desktop/Practical_Machine_Learning')
+train <- read.csv("pml-training.csv", na.strings=c("NA","","NULL"))
+test <- read.csv("pml-testing.csv", na.strings=c("NA","","NULL"))
+```
+
+```{r}
+dim(train)
+```
+
+The train data set consist of `r dim(train)[1]` rows and `r dim(train)[2]` columns.
+
+```{r results='hide'}
+summary(train)
+```
+
+A summary of the train table reveils that most of the columns consists mainly of NA strings.
+These variables are removed from the train dataset.
+Variables that consists of user information are removed for model training purpose as well.
+
+```{r}
+train_clean <- train[ , colSums(is.na(train)) == 0]
+train_clean <- train_clean[,-c(1:8)]
+
+dim(train_clean)
+```
+
+The dataset with variables consists NA removed has `r dim(train_clean)[1]` and `r dim(train_clean)[2]` columns.
+
+#Cross Validation
+Training dataset are then partitioned into training and testing set for cross validation purpose.
+Data are partition at a ratio of 7:3 for training and testing the model.
+
+Dataset with 20 use cases provided is prepared as well.
+
+```{r,warning=FALSE,message=FALSE}
+set.seed(1212)
+library(caret)
+```
+```{r}
+inTrain <- createDataPartition(y=train_clean$classe,p=0.7,list=FALSE)
+
+training <- train_clean[inTrain,]
+testing <- train_clean[-inTrain,]
+
+test_clean <- test[ , colSums(is.na(train)) == 0]
+test_clean <- test_clean[,-c(1:7)]
+test_clean <- test_clean[,-52]
+```
+
+The training set consists of `r dim(training)[1]` rows of observations and testing set consists of `r dim(testing)[1]` observations.
+
+#Training Random Forest Tree
+To avoid time consuming default boostraping method, trControl parameters are used.
+
+```{r,warning=FALSE,message=FALSE}
+library(randomForest)
+```
+
+```{r}
+control <- trainControl(allowParallel=T, method="cv", number=4)
+rf <- train(classe~.,data=training,model="rf",trControl=control)
+
+rf_pred <- predict(rf,newdata=testing)
+```
+
+The accuracy for Random Forest is at `r sum(rf_pred == testing$classe) / length(rf_pred)*100`%.
+Following is the confusion matrix of the Random Forest model on test dataset.
+
+```{r}
+confusionMatrix(rf_pred,testing$classe)
+```
+
+Dataset containing the 20 cases are strip off to only contains variables as per the training dataset and then was fit using the model built.
+
+```{r}
+rftest_case <- predict(rf,newdata=test)
+
+rftest_case
+```
+
+#Training Regression Tree
+For Regression Tree, same trControl parameter are used.
+
+```{r}
+rt <- train(classe~.,data=training,model="rpart",trControl=control)
+
+rt_pred <- predict(rt,newdata=testing)
+```
+
+
+The accuracy for Regression Tree is at `r round(sum(rt_pred == testing$classe) / length(rt_pred),6)*100`%.
+Following is the confusion matrix of the Regression Tree model on test dataset.
+
+```{r}
+confusionMatrix(rt_pred,testing$classe)
+```
+
+20 use cases are then fit using the Regression Tree model.
+
+```{r}
+rttest_case <- predict(rt,newdata=test)
+
+rttest_case
+```
+
+#Training GBM Model
+For GBM model, same trControl parameter are used.
+
+```{r}
+gbm <- train(classe~.,data=training,model="gbm",trControl=control)
+
+gbm_pred <- predict(gbm,newdata=testing)
+```
+
+
+The accuracy for GBM model is at `r round(sum(gbm_pred == testing$classe) / length(gbm_pred),6)*100`%.
+Following is the confusion matrix of the Regression Tree model on test dataset.
+
+```{r}
+confusionMatrix(gbm_pred,testing$classe)
+```
+
+20 use cases are then fit using the Regression Tree model.
+
+```{r}
+gbmtest_case <- predict(gbm,newdata=test)
+
+gbmtest_case
+```
+
+#Conclusion
+The accuracy level of 3 models created are:
+
+1. Random Forest: `r round(sum(rf_pred == testing$classe) / length(rf_pred),6)*100`%
+2. Regression Tree: `r round(sum(rt_pred == testing$classe) / length(rt_pred),6)*100`%
+3. GBM : `r round(sum(gbm_pred == testing$classe) / length(gbm_pred),6)*100`%
+
+Regression Tree model is the most with highest accuracy.
+
+It's prediction for the 20 use cases are:
+```{r}
+rttest_case
+```
